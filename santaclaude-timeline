@@ -1,0 +1,93 @@
+Below is a detailed timeline and cast of characters based on the provided "Santaclaude: AI Project Workspace Design & Test Plan" and "santaclaude-DESIGN-PLAN.md" sources.
+
+Detailed Timeline of Main Events (Santaclaude Project)
+The project is structured into three main phases, with various design, testing, and operational considerations integrated throughout.
+
+Pre-Phase 1: Planning and Initial Design
+
+Initial Design & Implementation Plan (v0.4) Created: This document outlines the project's purpose, scope, non-negotiables (DoR, DoD, SLOs), architecture, phase plan, detailed phase scope, acceptance criteria, test plans, and initial thoughts on advanced testing.
+Gap Closure & Modularization Addendum (v0.6) Created: This addendum updates the plan with details on service modularization, advanced data migration strategies (zero-downtime, rollback scenarios), formalized "Excellent Additions" (distributed tracing, WS pooling, GraphQL, Kubernetes, PagerDuty integration, feature flag testing, blue-green deployment), CDN configuration, and WebSocket scaling. This document also provides explicit instructions to merge its content into the main plan.md.
+Phase 1: MVP Foundations
+
+Start Phase 1: Kick-off involves creating tickets mapped to Acceptance Criteria (ACs), standing up QA dashboards, and implementing the traceability matrix in CI.
+Core Feature Development:Kanban Core: Implementation of basic Kanban board functionality (CRUD for cards, configurable columns, drag-and-drop, per-project state).
+Realtime Collaboration: Development of Operational Transforms (OT) for board/card edits, conflict resolution, and presence indicators.
+Single-Agent AI Control: Integration of AI model auto-selection (via claude-code-router) with rationale display and manual override. Results streamed via SSE.
+Auth & RBAC: Implementation of OIDC (Google, GitHub) and local authentication, JWT sessions, TOTP MFA, and role-based access control (admin, developer, viewer).
+Audit & Consent (Baseline): Development of permission dialogs for destructive operations and logging to audit_logs.
+Data Layer Setup: Establishment of PostgreSQL + PgVector database, Alembic migrations, and daily snapshot policy.
+DevEx/CI Setup: Configuration of docker-compose for development, GitHub Actions for CI (lint, test, build, deploy), and preview environments for PRs.
+Phase 1 Testing:Unit, Integration, E2E, Load, and Security Tests: Execution of comprehensive tests to ensure compliance with ACs, including specific tests for OT, RBAC, JWT/TOTP, model router, FastAPI endpoints, auth callbacks, audit writes, SSE stream stability, sign-in flows, and visual regression. Load tests (k6) target API latency and error rates. Security scans (Bandit, pip-audit, ZAP) are performed.
+Phase 1 Exit Gate: All ACs must pass in the staging environment, SLOs must be met, a rollback plan documented, runbooks updated, and ADRs merged. Module boundary reviews are enforced per PR.
+Phase 2: Collaboration & Controls
+
+Core Feature Development:Workspace Drawer: Implementation of a right-hand drawer containing a Monaco File Explorer, Embedded Shell, and Git Panel.
+Multi-Agent Integration: claude-squad integration for collaborative squad mode per card, including task fan-out/fan-in and a coordinator.
+Streaming & Observability Refinements: Enhancements to WebSockets/SSE, OpenTelemetry trace spans for AI tasks, and richer rationale surfacing.
+Permissions Hardening: Granular scopes for disk writes, shell execution, browser automation, and per-project tool toggles.
+Settings Management: API-Key vault and persistence of user preferences to ~/.config/ProjectFlowAI/settings.json.
+Service Modularization (Extraction Candidates): Initial candidates for service extraction (browser_pool, audit sink) are identified, preparing for their isolation from the modular monolith. This process involves replacing in-process providers with HTTP/gRPC clients while preserving contract tests and DB ownership.
+Advanced Testing Introduction:Chaos Engineering Tests (Scheduled Weekly in Staging): Introduction of chaos scenarios like network partitions during OT sync, browser pool crash recovery, and AI service timeout handling. ACs are updated to include resilience requirements.
+Contract Testing: All public APIs are required to have JSON schema definitions and contract tests, failing CI on incompatible changes.
+Performance Regression Tests (CI Benchmarks): Benchmarks are introduced for Kanban board rendering, OT merge performance, and memory leak detection in the browser pool. ACs include limits on performance regression.
+Data Migration Testing (Expand-Migrate-Contract Strategy): Formalization of zero-downtime migration strategies (expand, backfill, dual-write, read-path toggle, cutover, contract) with specific rollback test scenarios and integrity verification procedures. CI hooks are introduced for migration smoke tests and nightly data diff jobs.
+Feature Flag Testing: Introduction of parametrized tests for feature flag combinations to verify no conflicts and ensure core flows pass.
+Phase 2 Exit Gate: All ACs must pass, dashboards must show target SLOs, a pen-test of shell/permissions must yield no critical findings, and the incident playbook for mis-scoped permissions must be approved. Chaos, contract, and perf suites are expected to be green in staging with published baselines. Flag-combination tests must pass for enabled features.
+Phase 3: Automation & Desktop
+
+Core Feature Development:Browser Automation: Implementation of Playwright Live Web Agent toggle per card, utilizing a managed browser pool.
+Site Cloner: Functionality to fetch a target URL and clone its assets into the project tree with provenance notes.
+Desktop Packaging: Tauri application packaging for Windows, macOS, and Linux, including auto-update and OS keychain integration.
+Cost Controls: Development of model usage caps, local model fallbacks, and per-project budget alerts.
+Deployment and Infrastructure Enhancements:Kubernetes Manifests: Provision of baseline Kubernetes manifests for API, WS, workers, and browser_pool services, including HPA scaling on custom metrics and node affinity.
+Blue-Green Deployment Strategy: Implementation of blue/green deployments with gradual traffic shifting, SLO monitoring, and auto-rollback on burn rate breaches.
+CDN Configuration: Details on cache invalidation strategies (surrogate keys, soft/hard purge), edge compute for authentication (JWT validation, minimal cache keys), and geographic distribution with specific asset TTLs and bypass rules.
+WebSocket Scaling: Decision to use stateless WS nodes with Redis pub/sub for fan-out and a session registry, avoiding sticky sessions for normal operations. Includes per-node/per-project limits, draining strategies, and observability metrics.
+Phase 3 Testing:Unit, Integration, E2E, Perf, and Security Tests: Execution of specific tests for browser pool scheduler, cloner parsers, budget calculator, Playwright session lifecycle, provenance metadata writer, Tauri updater channel, live agent scripts, site cloning, desktop app packaging, and budget breach simulation. Performance tests focus on browser pool under concurrent tasks and memory/CPU caps. Security checks include CSP, sandboxing, and code-sign verification.
+Phase 3 Exit Gate: All ACs must pass on staging and desktop pilots. OS-specific signing must be complete, a rollback path for auto-updates documented, and support docs published. Chaos, contract, and perf suites must be green, migration tests validated, and flag-combination tests pass.
+Ongoing Throughout Project Lifecycle:
+
+Quality Gates: Adherence to Definition of Ready (DoR) and Definition of Done (DoD) for all work items.
+SLOs and Error Budgets: Continuous monitoring of API latency, UI update times, AI routing times, and error rates.
+Observability: Structured logging (Loguru/Pino), Prometheus + Grafana dashboards, and OpenTelemetry + Jaeger tracing for all services.
+Security: OAuth2/OIDC, JWT with refresh rotation, TOTP MFA, RBAC, E2E encryption, strict CORS, rate limiting, and 90-day audit retention. Regular security checks (pip-audit, Bandit, Trivy, OWASP ZAP).
+Data, Security & Compliance: Adherence to schema (users, projects, ai_sessions, audit_logs), RBAC, privacy policies (E2E encryption, secret vaulting, log redaction, DSR runbook).
+Risk Monitoring: Continuous monitoring of identified risk areas like OT complexity, browser pool resource management, and cross-platform desktop (Tauri) issues, with targeted tests.
+Testing Infrastructure: Utilization of a comprehensive test environment matrix (unit, integration, E2E, load, security) with defined timeouts, services, and tools, enforced in CI.
+Open Questions Resolution: Addressing open questions regarding model connectors, shell whitelists, Tauri signing, budget thresholds, and project scaffolding.
+Cast of Characters
+The sources provided describe an AI project workspace, "santaclaude," and primarily focus on technical architecture, processes, and user roles. Therefore, the "characters" are defined by the roles they play within the system or the project itself.
+
+Principal People/Entities Mentioned (by Role/Function):
+
+User:
+Admin: A user role with the highest level of privilege. Can manage other users, manage billing, override cost budget thresholds, and likely manage global settings and configurations. Plays a critical role in system administration and oversight.
+Developer: A user role with permissions to create and modify projects, run AI operations within project scope, and interact with the workspace's development tools (e.g., Monaco File Explorer, Embedded Shell, Git Panel). This role is core to the "AI-augmented project workspace" concept.
+Viewer: A user role with read-only access. Cannot modify cards or perform destructive actions. Primarily for observing project progress.
+Signed-in User: A general term referring to any authenticated user within the system, whose identity is used for audit logging (e.g., as the commit author in the Git Panel) and authorization checks.
+Virtual Users (VUs): A term used in load testing (k6) to simulate concurrent users interacting with the system. Not real people, but represents user load.
+AI/Automation Agents & Services:
+AI Control (Single Agent): The system component responsible for automatically selecting an appropriate AI model for a task and displaying a rationale. Users can override its choice.
+claude-code-router: A specific component within the AI Control system responsible for selecting the AI model based on the task.
+claude-squad: A multi-agent system integrated into the platform, enabling collaborative AI work. It distributes subtasks and aggregates outputs, handling retry policies for member failures.
+Browser Pool: A managed pool of browser instances (Chromium, Firefox, WebKit) used by the Playwright Live Web Agent for browser automation. It handles scaling, resource management, and orphaned process reaping.
+Playwright Live Web Agent: An automated agent that can execute live web actions within a pooled browser, with steps visible in real-time. It requires permission dialogs for external navigation and file writes.
+website_cloner: A service responsible for fetching content from a target URL and cloning it into the project tree, including HTML, CSS, assets, checksums, and provenance metadata.
+System Components/Services (implicitly "people" in a design context):
+Frontend (SvelteKit): The user-facing part of the application, handling UI updates and interactions.
+API Gateway (FastAPI): The central entry point for backend services, routing requests to various modules.
+AI Orchestrator: Manages and coordinates AI-related tasks, interacting with Model Connectors and the Squad Coordinator.
+Kanban Service: Manages the core Kanban board functionality, including cards, columns, and real-time collaboration via Operational Transforms (OT).
+Automation Service: Handles automation tasks, including the Site Cloner and interaction with the Browser Pool.
+Model Connectors: Components that interface with various AI models.
+Squad Coordinator: Part of the Multi-Agent system, responsible for task fan-out/fan-in and aggregation of outputs from claude-squad members.
+Clone Service: The backend component implementing the site cloning functionality.
+PostgreSQL + PgVector: The primary database for persistent data storage, including vector embeddings for AI sessions.
+Desktop Shell (Tauri): The framework used to package the web application as a native desktop application, handling OS-level integrations like keychains and auto-updates.
+Redis: Used for WebSocket pub/sub (or streams) for topic fan-out and a session registry for stateless WS nodes.
+Alembic: The database migration tool used for schema evolution.
+GitHub Actions: The CI/CD automation platform used for linting, testing, building, and deploying the application.
+Prometheus + Grafana / OpenTelemetry + Jaeger / Loguru/Pino: The observability stack components responsible for metrics, tracing, and structured logging.
+Bandit, pip-audit, Trivy, OWASP ZAP: Security scanning tools used to ensure code and container security.
+k6, Locust: Load testing tools used for performance validation.
+PagerDuty: An incident management tool integrated with SLO monitoring for alerts and runbook linking.

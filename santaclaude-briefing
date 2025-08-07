@@ -1,0 +1,160 @@
+Santaclaude: AI Project Workspace - Detailed Briefing
+Executive Summary
+"Santaclaude" is an AI-augmented project workspace, internally codenamed santaclaude, that integrates a Kanban-driven project management interface with per-task AI control and safe automation capabilities (browser actions, site cloning). The platform will be delivered as a web application and optionally packaged for desktop via Tauri. The project emphasizes testability, robust quality gates, and advanced testing methodologies including chaos engineering, contract testing, and performance regression analysis. The architecture leverages modern web and backend stacks like SvelteKit, FastAPI, PostgreSQL+PgVector, and Playwright. The development is structured into three distinct phases: MVP Foundations, Collaboration & Controls, and Automation & Desktop. A recent addendum details modularization strategy, comprehensive data migration testing, and formalized "excellent additions" for distributed tracing, WebSocket scaling, and advanced deployment strategies.
+
+1. Purpose & Scope
+Santaclaude aims to provide an "AI-augmented project workspace" by fusing a "Kanban-driven PM interface with per-task AI control and safe automation (browser actions, site cloning)." It will be available on the web and as a desktop application via Tauri. The project's core philosophy is "testability at every stage" with strict "Definition of Ready/Done, acceptance criteria, and phase gates," now enhanced with "advanced testing and chaos engineering."
+
+2. Quality Gates & SLOs
+The project enforces rigorous quality standards through defined gates and Service Level Objectives (SLOs):
+
+2.1 Definition of Ready (DoR)
+A work item is "Ready" when:
+
+"Acceptance criteria are written and testable."
+"Telemetry and audit fields are specified."
+"Security, permissions, and fallback behavior defined."
+"Feature flag key and rollout strategy documented."
+2.2 Definition of Done (DoD)
+A work item is "Done" when:
+
+"All acceptance tests pass (unit/integration/E2E), coverage ≥ 80% for units."
+"Observability: logs contain structured fields."
+"Security checks pass: pip-audit, Bandit, container scan (Trivy), OWASP ZAP baseline."
+"Docs: user-facing help + admin runbook updated; ADR added if architecture changed."
+2.3 SLOs & Error Budgets
+API latency: "p95 < 200ms"
+Kanban UI updates: "< 50ms"
+AI routing: "< 100ms"
+Error budget: "≤ 1% 5xx over rolling 7 days."
+Realtime collaboration: "merge-conflict loss rate 0% on OT test suite."
+3. Architecture & Technology Stack
+The system architecture is a modular monolith in Phase 1, designed for eventual service extraction.
+
+graph TB
+
+A[Frontend - SvelteKit] --> B[API Gateway - FastAPI]
+
+B --> C[AI Orchestrator]
+
+B --> D[Kanban Service]
+
+B --> E[Automation Service]
+
+C --> F[Model Connectors]
+
+C --> G[Squad Coordinator]
+
+E --> H[Browser Pool]
+
+E --> I[Clone Service]
+
+B --> J[(PostgreSQL + PgVector)]
+
+K[Desktop Shell - Tauri] --> A
+
+Key Technologies:
+
+Frontend: SvelteKit+Tailwind, Monaco editor.
+Backend: Python 3.12 + FastAPI (SSE/WebSockets), Playwright (Python).
+Database: PostgreSQL 15 + PgVector.
+Desktop: Tauri.
+Security: OAuth2/OIDC + local auth, JWT with refresh rotation, TOTP MFA, RBAC, E2E encryption, strict CORS, "100 req/min rate limit, 90-day audit retention."
+3.1 Service Modularization (Phase 1 & 2)
+The project emphasizes a "modular monolith" approach in Phase 1 with "crisp domains, explicit interfaces, and an evented seam to enable service extraction in Phase 2."
+
+Data ownership: "only the owning module writes its tables."
+Interactions: modules use "service interfaces (FastAPI dependency providers) or events on the message bus. No cross-module direct SQL writes."
+Contracts: "JSON Schemas in /contracts/{module} must be versioned."
+Extraction Candidates (Phase 2): "ai workers (already offloaded), browser_pool (already isolated) and audit sink (to ClickHouse/S3)."
+4. Phased Development Plan
+The project is structured into three main phases:
+
+4.1 Phase 1 — MVP Foundations
+Theme: "MVP Foundations"
+Key Deliverables: "Kanban core, single-agent AI, auth/RBAC, audit baseline, web deploy."
+Kanban Core: CRUD for cards, drag-and-drop, configurable columns.
+Realtime Collaboration: Operational Transforms (OT) for board/card edits, "conflict resolution; presence indicators."
+AI Control (Single Agent): "Model auto-select with rationale via claude-code-router," manual override, streamed results.
+Auth & RBAC: OIDC (Google, GitHub) + local, JWT, TOTP MFA; roles: admin/developer/viewer.
+Audit & Consent: Permission dialogs for destructive operations, logging to audit_logs.
+Data Layer: PostgreSQL + PgVector, Alembic migrations, daily snapshot.
+DevEx/CI: docker-compose, GitHub Actions (lint→test→build→deploy), preview env on PR.
+Primary Risks: "Auth complexity, OT correctness."
+Acceptance Criteria Example: "AC-K2: Two browsers editing the same board show consistent state with no lost updates across 1,000 random OT ops."
+4.2 Phase 2 — Collaboration & Controls
+Theme: "Collab & Controls"
+Key Deliverables: "Workspace drawer, squad agents, streaming, hardened permissions/audit."
+Workspace Drawer: Right-hand drawer with "Monaco File Explorer, Embedded Shell (project root), Git Panel."
+Multi-Agent: "claude-squad integration" for collaborative tasks, fan-out/fan-in with coordinator.
+Streaming & Observability: WebSockets/SSE refinements, trace spans for AI tasks, richer rationale.
+Permissions Hardening: "Granular scopes for disk writes, shell exec, browser automation; per-project tool toggles."
+Settings: API-Key vault, user preferences.
+Primary Risks: "Multi-agent orchestration cost & UX."
+Acceptance Criteria Example: "AC-SQ1: Switching Agent Mode to Squad distributes subtasks and aggregates outputs; failure of a member triggers retry policy; rationale and member traces visible."
+4.3 Phase 3 — Automation & Desktop
+Theme: "Automation & Desktop"
+Key Deliverables: "Playwright live web agent, site cloner, Tauri packaging."
+Browser Automation: Playwright "Live Web Agent toggle per card; managed browser pool."
+Site Cloner: "Fetch target URL → clone into project tree (HTML/CSS/assets) with provenance notes."
+Desktop Packaging: "Tauri app (Win/macOS/Linux) with auto-update, OS keychain."
+Cost Controls: "Model usage caps, local model fallbacks; per-project budget alerts."
+Primary Risks: "Browser automation stability, OS signing."
+Acceptance Criteria Example: "AC-TAU1: Tauri build installs and runs on all target OS; keychain access ok; crash reporter sends anonymized telemetry."
+5. Advanced Testing & Quality Assurance
+The plan includes a comprehensive testing strategy:
+
+5.1 Chaos Engineering
+Purpose: Scheduled experiments in staging to test resilience.
+Scenarios: "Network partitions during OT sync," "Browser pool crash recovery," "AI service timeout handling."
+AC Example: "AC-CHAOS1: OT remains consistent across induced partitions; no lost updates; reconciliation < 5s after heal."
+5.2 Contract Testing
+Purpose: Ensure API and service compatibility.
+Scope: "All public APIs have JSON schema definitions and contract tests."
+AC Example: "AC-CONTRACT1: incompatible changes fail CI."
+5.3 Performance Regression Tests
+Purpose: Prevent performance degradation in CI.
+Benchmarks: "Kanban board render with 1000+ cards," "OT merge performance degradation check," "Memory leak detection in browser pool."
+AC Example: "AC-PERF1: No >10% regression vs. baseline for render and OT merge benchmarks."
+5.4 Data Migration Testing
+Strategy: "Expand-migrate-contract" with rollbacks, integrity checks, and "zero-downtime procedures."
+Expand: Add new nullable/defaulted tables/columns.
+Backfill: Background job migrates existing data.
+Dual-write: App writes to old and new shapes (feature flagged).
+Read-path toggle: Progressive rollout of reads from new shape (feature flagged).
+Cutover: Disable dual-write, freeze old writes.
+Contract: Remove old columns/indexes.
+Tests: "Rollback within a release window," "Dual-write fallback," "Backfill retry."
+Integrity Verification: "Row counts," "Checksums," "Canary queries," "PITR" (point-in-time recovery rehearsal).
+AC Example: "AC-MIG1: alembic upgrade/downgrade idempotent in CI snapshots; referential integrity check passes; PITR validated post-migration."
+5.5 Feature Flag Testing
+Purpose: Verify feature combinations and prevent conflicts.
+Method: Automate combinations in CI using a "pairwise generator."
+AC Example: "AC-FLAGS1: All defined flag combinations for active features pass core flow tests; unsupported combos blocked by policy."
+5.6 Risk Areas to Monitor
+OT Complexity: Simultaneous deletions, card moves during restructuring, network reconnection.
+Browser Pool Resource Management: Orphaned process cleanup, memory limits, browser crashes.
+Cross-Platform Desktop (Tauri): Auto-update failures, keychain access, platform-specific paths.
+6. CI/CD, Environments, and Rollout
+Environments: dev (local compose), preview (per PR), staging, prod.
+Pipelines: GitHub Actions for linting, testing (unit, integration, E2E headless), building, deploying, and packaging.
+Quality Gates: "Coverage ≥ 80%; ZAP no High; k6 p95 < 200ms."
+Feature Flags: "Each Phase 2+ feature behind a flag; gradual rollout with kill switch and owner."
+Observability: "Prometheus + Grafana dashboards; OpenTelemetry + Jaeger tracing; Loguru/Pino structured logs."
+Blue-Green Deployment: "Blue/Green apps behind a stable ingress VIP," gradual traffic shifting, auto-rollback on SLO breaches.
+7. Data, Security & Compliance
+Schema: users, projects, ai_sessions, audit_logs. Migrations via Alembic, PITR 7-day, snapshots 30-day retention.
+RBAC: admin, developer, viewer roles with unit-tested authorization middleware.
+Privacy: "E2E encryption; secrets in vault; redaction in logs; DSR (data subject request) runbook."
+8. Excellent Additions & Enhancements
+Distributed Tracing & Correlation: Use W3C trace context, propagate over WS/SSE, enrich spans with project_id, user_id.
+WebSocket Scaling: "Stateless WS nodes" using "Redis pub/sub (or streams)" and a "session registry." "No sticky sessions" are required. Includes client reconnection logic, server-side rate limits/quotas, graceful draining.
+Limits: Target "≤ 20k concurrent conns" per node; "max concurrent WS = 3" per project/user; "message rate ≤ 50 msg/s/client."
+GraphQL (future): "Read-only GraphQL gateway" in Phase 2 for board/card reads using "persisted queries only." Mutations remain on REST.
+Kubernetes Manifests: Baseline manifests for various services, including custom metrics for WS HPA and node affinity rules.
+SLO Monitoring with PagerDuty: Alert policies for latency, disconnect rates, MQ lag, and error budget burn, with runbook links and correlation IDs.
+CDN Configuration:Cache Invalidation: "Surrogate keys" per project/board, prefer "soft purge" for HTML. Invalidate on events (e.g., card.created/moved).
+Edge Compute for Auth: Edge functions validate signed cookies/JWT, derive cache keys, block requests missing consent headers.
+Geographic Distribution: Tier 1 POPs, immutable assets with content hashing, HTML TTL 60s with stale-while-revalidate. Bypass CDN for API/WS.
+9. Next Actions
+"Start Phase 1: create tickets mapped to ACs; stand up QA dashboards; implement traceability matrix in CI."

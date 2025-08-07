@@ -1,0 +1,56 @@
+1. What is "santaclaude" and what problem does it aim to solve?
+"santaclaude" is an AI-augmented project workspace designed to enhance project management. It integrates a Kanban board interface with AI capabilities for task control and safe automation, such as browser actions and site cloning. The primary problem it addresses is the need for a more intelligent and automated project management system that combines traditional Kanban workflows with advanced AI assistance and web automation, accessible via web and desktop.
+
+2. What are the core components of the "santaclaude" architecture?
+The "santaclaude" architecture is a modular monolith, initially, with clear separation for future extraction into microservices. Key components include:
+
+Frontend: Built with SvelteKit and Tailwind.
+API Gateway: Uses FastAPI to manage communication.
+AI Orchestrator: Handles AI model selection and coordinates AI tasks.
+Kanban Service: Manages the core Kanban board functionalities.
+Automation Service: Controls browser actions and site cloning.
+Data Layer: Utilizes PostgreSQL with PgVector for data storage.
+Model Connectors: Interfaces with various AI models.
+Squad Coordinator: Manages multi-agent AI collaboration.
+Browser Pool: A managed pool of browsers for automation.
+Desktop Shell: Provided by Tauri for desktop packaging. This design emphasizes modularity for potential future service extraction.
+3. How does "santaclaude" ensure quality and reliability throughout its development?
+"santaclaude" enforces rigorous quality gates at every stage. This includes:
+
+Definition of Ready (DoR): Ensures work items have clear acceptance criteria, telemetry, security, and feature flag strategies before development begins.
+Definition of Done (DoD): Requires passing all tests (unit, integration, E2E) with high code coverage (≥ 80% for units), successful security checks (pip-audit, Bandit, Trivy, OWASP ZAP), comprehensive observability (structured logs), and updated documentation.
+Service Level Objectives (SLOs): Strict targets for API latency (p95 < 200ms), UI updates (< 50ms), AI routing (< 100ms), and a low error budget (≤ 1% 5xx).
+Advanced Testing: Incorporates chaos engineering, contract testing, performance regression tests, data migration testing, and feature flag testing.
+4. What are the main development phases for "santaclaude"?
+The development of "santaclaude" is structured into three main phases:
+
+Phase 1: MVP Foundations: Focuses on the core Kanban functionality, single-agent AI control, authentication, role-based access control (RBAC), basic auditing, and real-time collaboration using Operational Transforms (OT).
+Phase 2: Collaboration & Controls: Introduces a workspace drawer with file explorer, embedded shell, and Git integration. It also implements multi-agent AI collaboration, refined streaming, granular permissions, and user settings.
+Phase 3: Automation & Desktop: Adds advanced features like the Playwright Live Web Agent, a site cloner, and desktop packaging via Tauri. Cost controls for AI model usage are also implemented in this phase.
+5. How does "santaclaude" handle real-time collaboration and data consistency?
+"santaclaude" leverages Operational Transforms (OT) for real-time collaboration on Kanban boards and cards. This ensures conflict-free editing and consistent state across multiple users. To further enhance this, it utilizes WebSockets and SSE (Server-Sent Events) for streaming updates. For robust scalability and reliability of real-time features, the system defaults to stateless WebSocket nodes using Redis Pub/Sub (or streams) for topic fan-out and a session registry, explicitly avoiding sticky sessions for normal operations. This architecture ensures high availability, backpressure management, and efficient message delivery.
+
+6. What measures are in place for data security and compliance?
+"santaclaude" incorporates several robust security and compliance measures:
+
+Authentication: OAuth2/OIDC, local authentication with bcrypt, JWT with refresh rotation, and TOTP MFA.
+Authorization: Role-Based Access Control (RBAC) with defined roles (admin, developer, viewer) and unit-tested authorization middleware.
+Encryption: End-to-end encryption, secrets stored in a secure vault.
+Auditing: Comprehensive audit logs (audit_logs table) with full context for actions, and 90-day retention. Permission dialogs are triggered for destructive operations, with decisions logged.
+Scanning: Regular security checks using tools like pip-audit, Bandit, Trivy (container scans), and OWASP ZAP baseline scans.
+Privacy: Redaction of sensitive information in logs and a runbook for Data Subject Requests (DSR).
+7. How does "santaclaude" manage and test data migrations to ensure zero downtime?
+"santaclaude" employs an expand-migrate-contract strategy for zero-downtime data migrations:
+
+Expand: New tables/columns are added as nullable or defaulted, keeping old structures.
+Backfill: Existing data is migrated in small, background batches.
+Dual-write: The application writes to both old and new data shapes, controlled by a feature flag.
+Read-path toggle: Gradually shifts reads to the new data shape.
+Cutover: Disables dual-writes and freezes old writes.
+Contract: Old columns/indexes are removed after stability is confirmed. Testing includes rollback scenarios, dual-write fallbacks, backfill retries, and integrity verification via row counts, checksums, and canary queries. CI hooks run migration smoke tests and nightly data diff jobs.
+8. What is "Chaos Engineering" and how is it applied in "santaclaude"?
+Chaos Engineering in "santaclaude" involves intentionally injecting failures into the system, typically in staging environments, to test its resilience and recovery mechanisms. These "chaos scenarios" are run as scheduled experiments with automatic rollback. For "santaclaude," examples include:
+
+Network partitions during Operational Transform (OT) synchronization.
+Browser pool crash recovery and orphaned process cleanup.
+AI service timeout handling. The goal is to ensure that the system remains consistent (e.g., no lost updates during network partitions), recovers quickly (e.g., browser pool recovers within 10 seconds), and provides actionable UI errors with auto-retry mechanisms when services fail. This proactive testing helps identify and fix weaknesses before they impact production.
