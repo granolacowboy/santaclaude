@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: santaclaude
+  labels:
+    name: santaclaude
+    phase: "phase-2"
+    project: "santaclaude-microservices"

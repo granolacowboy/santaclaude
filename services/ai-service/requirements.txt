@@ -1,0 +1,22 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
+pydantic==2.5.0
+pydantic-settings==2.1.0
+httpx==0.25.2
+redis==5.0.1
+alembic==1.13.1
+
+# Optional: observability
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-auto-instrumentation==0.42b0
+opentelemetry-exporter-jaeger==1.21.0
+
+# Optional: for encrypted API keys
+cryptography==41.0.8
+
+# Development dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2

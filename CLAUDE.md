@@ -14,6 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **claudecodeui**: Progressive web app interface for Claude Code
 - **context7**: Smart context selector for development files
 - **claude-desktop-debian**: Debian packaging for Claude desktop
+- **projectflow-ai**: Python/FastAPI backend with Svelte frontend for AI project management
 
 ## Development Commands by Project
 
@@ -92,6 +93,28 @@ go build
 ./clean.sh
 ```
 
+### projectflow-ai
+```bash
+# Backend development (from projectflow-ai/backend)
+pip install -r requirements.txt
+python main.py
+
+# Database migration
+alembic upgrade head
+
+# Frontend development (from projectflow-ai/frontend)
+npm install
+npm run dev
+```
+
+### context7
+```bash
+# Build TypeScript project
+npm run build
+bun install
+bun run src/index.ts
+```
+
 ## Architecture Overview
 
 ### vibe-kanban Architecture
@@ -112,6 +135,17 @@ go build
 - **Backend**: Node.js/TypeScript with conversation management
 - **Frontend**: React with chat interface and project management
 - **Features**: History loading, conversation grouping, mobile-responsive
+
+### projectflow-ai Architecture
+- **Backend**: FastAPI with SQLAlchemy, PostgreSQL database, Alembic migrations
+- **Frontend**: Svelte with TypeScript and Tailwind CSS
+- **Features**: AI model management, project workflows, authentication system
+- **Database**: PostgreSQL with separate modules for auth, kanban, projects, AI models
+
+### context7 Architecture
+- **Runtime**: Bun/Node.js TypeScript CLI tool
+- **Features**: Smart file selection, encryption support, JSON schema validation
+- **Configuration**: JSON-based project configuration with smithery.yaml support
 
 ## Key Development Guidelines
 
@@ -149,6 +183,17 @@ go build
 - **Cross-Platform**: Handles Linux/macOS date command differences
 - **Security Note**: Uses `--dangerously-skip-permissions` flag - use in trusted environments only
 
+### projectflow-ai Key Features
+- **Modular Architecture**: Separate modules for auth, RBAC, projects, kanban, and AI
+- **Database Migrations**: Alembic-managed PostgreSQL schema evolution
+- **FastAPI Backend**: Async Python backend with auto-generated OpenAPI docs
+- **AI Integration**: Support for multiple AI models and providers
+
+### context7 Key Features
+- **Smart Selection**: Analyzes codebase to suggest relevant files for context
+- **Encryption Support**: Built-in support for encrypted file storage
+- **Multi-Runtime**: Works with both Bun and Node.js environments
+
 ## Environment Configuration
 
 ### vibe-kanban
@@ -161,6 +206,17 @@ go build
 - Configuration via `~/.claude-code-router/config.json`
 - Supports multiple provider configurations
 - Custom router scripts for advanced routing logic
+
+### projectflow-ai
+- Requires PostgreSQL database connection
+- Python virtual environment recommended for backend
+- Environment variables for database URL and secret keys
+- Svelte dev server runs on default port 5173
+
+### context7
+- Supports both Bun and Node.js runtimes
+- JSON schema validation via smithery.yaml
+- Optional encryption for sensitive file content
 
 ## Project Context
 

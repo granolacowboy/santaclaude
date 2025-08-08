@@ -1,0 +1,191 @@
+version: '3.8'
+
+services:
+  # Extracted AI Service (Phase 2)
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - DEBUG=true
+      - DATABASE_URL=sqlite:///./ai_service.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./ai-service:/app
+      - ai_service_db:/app/data
+    depends_on:
+      - redis
+      - message-queue-service
+    networks:
+      - santaclaude-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Browser Pool Service (Phase 2)
+  browser-pool-service:
+    build:
+      context: ./browser-pool-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - DEBUG=true
+      - MAX_BROWSERS=3
+      - BROWSER_TIMEOUT=300
+      - ENABLE_SANDBOX=false  # Disabled for containers
+      - REDIS_URL=redis://redis:6379/2
+    volumes:
+      - ./browser-pool-service:/app
+    depends_on:
+      - redis
+      - message-queue-service
+    networks:
+      - santaclaude-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Audit Sink Service (Phase 2)
+  audit-sink-service:
+    build:
+      context: ./audit-sink-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - DEBUG=true
+      - STORAGE_BACKEND=clickhouse
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_DATABASE=audit
+      - REDIS_URL=redis://redis:6379/3
+      - BUFFER_SIZE=100
+      - FLUSH_INTERVAL=10
+    volumes:
+      - ./audit-sink-service:/app
+    depends_on:
+      - redis
+      - clickhouse
+      - message-queue-service
+    networks:
+      - santaclaude-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Message Queue Service (Phase 2)
+  message-queue-service:
+    build:
+      context: ./message-queue-service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - DEBUG=true
+      - REDIS_URL=redis://redis:6379/0
+      - CONSUMER_COUNT=2
+      - DEFAULT_MAX_LEN=10000
+    volumes:
+      - ./message-queue-service:/app
+    depends_on:
+      - redis
+    networks:
+      - santaclaude-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Main ProjectFlow AI Service  
+  projectflow-api:
+    build:
+      context: ../projectflow-ai/backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=true
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/projectflow_ai
+      - AI_SERVICE_URL=http://ai-service:8001  # Phase 2: Points to extracted service
+      - REDIS_URL=redis://redis:6379/1
+    volumes:
+      - ../projectflow-ai/backend:/app
+    depends_on:
+      - postgres
+      - ai-service  # Phase 2: Depends on extracted AI service
+      - redis
+    networks:
+      - santaclaude-network
+
+  # Database for main service
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=projectflow_ai
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - santaclaude-network
+
+  # Redis for caching and message queue
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - santaclaude-network
+
+  # ClickHouse for audit sink
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8-alpine
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DB=audit
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - santaclaude-network
+
+  # Optional: Redis GUI for development
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    hostname: redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - santaclaude-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  ai_service_db:
+  clickhouse_data:
+
+networks:
+  santaclaude-network:
+    driver: bridge

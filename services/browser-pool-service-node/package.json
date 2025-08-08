@@ -1,0 +1,35 @@
+{
+  "name": "browser-pool-service-node",
+  "version": "1.0.0",
+  "description": "Node.js Browser Pool Service for Phase 3 - Playwright native runtime",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test test/*.test.js",
+    "install-browsers": "playwright install"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.9.0",
+    "@grpc/proto-loader": "^0.7.10",
+    "playwright": "^1.40.0",
+    "ws": "^8.14.0",
+    "uuid": "^9.0.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "browser-automation",
+    "playwright",
+    "microservice",
+    "grpc",
+    "websocket"
+  ],
+  "license": "MIT"
+}

@@ -24,9 +24,12 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_ID: str = ""
     GITHUB_CLIENT_SECRET: str = ""
     
-    # External services
+    # External services (Phase 2: moved to AI service)
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
+    
+    # Microservices (Phase 2 service extraction)
+    AI_SERVICE_URL: str = "http://localhost:8001"
     
     # Security
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30

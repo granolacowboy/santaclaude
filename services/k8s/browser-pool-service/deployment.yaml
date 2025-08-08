@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: browser-pool-config
+  namespace: santaclaude
+data:
+  DEBUG: "false"
+  HOST: "0.0.0.0"
+  PORT: "8002"
+  MAX_BROWSERS: "5"
+  BROWSER_TIMEOUT: "300"
+  BROWSER_TYPE: "chromium"
+  HEADLESS: "true"
+  ENABLE_SANDBOX: "false"  # Disabled for containers
+  REDIS_URL: "redis://redis:6379/2"
+  SESSION_CLEANUP_INTERVAL: "60"
+  MAX_PAGE_LOAD_TIME: "30"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: browser-pool-service
+  namespace: santaclaude
+  labels:
+    app: browser-pool-service
+    tier: backend
+    phase: phase-2
+spec:
+  selector:
+    app: browser-pool-service
+  ports:
+    - port: 8002
+      targetPort: 8002
+      name: http
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: browser-pool-service
+  namespace: santaclaude
+  labels:
+    app: browser-pool-service
+    tier: backend
+    phase: phase-2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: browser-pool-service
+  template:
+    metadata:
+      labels:
+        app: browser-pool-service
+        tier: backend
+        phase: phase-2
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8002"
+    spec:
+      # Node affinity to run on nodes with more resources
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values: ["browser-pool"]
+      containers:
+      - name: browser-pool-service
+        image: santaclaude/browser-pool-service:latest
+        ports:
+        - containerPort: 8002
+          name: http
+        envFrom:
+        - configMapRef:
+            name: browser-pool-config
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8002
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+        securityContext:
+          # Browser needs some privileges but we limit them
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+        # Browser needs shared memory for proper operation
+        volumeMounts:
+        - name: shm-volume
+          mountPath: /dev/shm
+      volumes:
+      - name: shm-volume
+        emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: browser-pool-hpa
+  namespace: santaclaude
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: browser-pool-service
+  minReplicas: 2
+  maxReplicas: 5  # Limit due to resource intensive nature
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+---
+# PodDisruptionBudget to ensure availability during rolling updates
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: browser-pool-pdb
+  namespace: santaclaude
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: browser-pool-service

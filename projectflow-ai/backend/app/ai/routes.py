@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.auth.service import AuthService
 from app.projects.service import ProjectService
 from app.ai import schemas
-from app.ai.service import AIService
+from app.ai.client import AIServiceClient  # Phase 2: Use HTTP client instead of in-process service
 
 router = APIRouter()
 security = HTTPBearer()
@@ -30,23 +30,21 @@ async def get_current_user(token: str = Depends(security), db: Session = Depends
 # Provider management routes
 @router.get("/providers", response_model=List[schemas.AIProvider])
 async def list_providers(
-    current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user = Depends(get_current_user)
 ):
     """List all available AI providers"""
-    ai_service = AIService(db)
-    return await ai_service.list_providers()
+    ai_client = AIServiceClient()
+    return await ai_client.list_providers()
 
 
 @router.get("/models", response_model=List[schemas.AIModel])
 async def list_models(
     provider_id: int = None,
-    current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user = Depends(get_current_user)
 ):
     """List all available AI models, optionally filtered by provider"""
-    ai_service = AIService(db)
-    return await ai_service.list_models(provider_id)
+    ai_client = AIServiceClient()
+    return await ai_client.list_models(provider_id)
 
 
 # Session management routes
@@ -68,8 +66,8 @@ async def create_session(
     if not can_edit:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    ai_service = AIService(db)
-    return await ai_service.create_session(session_create, current_user.id)
+    ai_client = AIServiceClient()
+    return await ai_client.create_session(session_create, current_user.id)
 
 
 @router.get("/sessions/{session_id}", response_model=schemas.AISession)
@@ -79,10 +77,10 @@ async def get_session(
     db: Session = Depends(get_db)
 ):
     """Get an AI session with messages"""
-    ai_service = AIService(db)
+    ai_client = AIServiceClient()
     project_service = ProjectService(db)
     
-    session = await ai_service.get_session(session_id)
+    session = await ai_client.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -104,12 +102,12 @@ async def chat(
     db: Session = Depends(get_db)
 ):
     """Send a message to an AI session"""
-    ai_service = AIService(db)
+    ai_client = AIServiceClient()
     project_service = ProjectService(db)
     
     # Get or create session
     if chat_request.session_id:
-        session = await ai_service.get_session(chat_request.session_id)
+        session = await ai_client.get_session(chat_request.session_id)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
     else:
@@ -136,7 +134,7 @@ async def chat(
             initial_message=chat_request.message
         )
         
-        session = await ai_service.create_session(session_create, current_user.id)
+        session = await ai_client.create_session(session_create, current_user.id)
     
     # Check project access
     project_role = project_service._check_project_permission(session.project_id, current_user.id)
@@ -146,9 +144,14 @@ async def chat(
         raise HTTPException(status_code=403, detail="Access denied")
     
     # Handle streaming vs non-streaming response
+    # Update chat_request with user_id and project_id for the AI service
+    chat_request.user_id = current_user.id
+    chat_request.project_id = session.project_id
+    chat_request.session_id = session.session_id
+    
     if chat_request.stream:
         async def generate_stream():
-            async for chunk in ai_service.chat_stream(session.session_id, chat_request.message):
+            async for chunk in ai_client.chat_stream(chat_request):
                 yield f"data: {json.dumps(chunk.model_dump())}\n\n"
             yield "data: [DONE]\n\n"
         
@@ -158,7 +161,7 @@ async def chat(
             headers={"Cache-Control": "no-cache"}
         )
     else:
-        response = await ai_service.chat(session.session_id, chat_request.message)
+        response = await ai_client.chat(chat_request)
         return response
 
 
@@ -170,10 +173,10 @@ async def add_message(
     db: Session = Depends(get_db)
 ):
     """Add a message to a session"""
-    ai_service = AIService(db)
+    ai_client = AIServiceClient()
     project_service = ProjectService(db)
     
-    session = await ai_service.get_session(session_id)
+    session = await ai_client.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -184,4 +187,4 @@ async def add_message(
     if not can_edit:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    return await ai_service.add_message(session_id, message)
+    return await ai_client.add_message(session_id, message)
