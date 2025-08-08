@@ -1,0 +1,3 @@
+-- Enable pgvector extension for vector operations (Phase 3)
+-- CREATE EXTENSION IF NOT EXISTS vector;
+-- Note: Vector extension will be added in Phase 3 with a custom PostgreSQL image

@@ -1,0 +1,9 @@
+
+[memcache]
+python-memcached
+
+[mongodb]
+pymongo
+
+[redis]
+redis
